@@ -71,7 +71,7 @@ impl Uploader {
         let agent_endpoint = &self.endpoint;
         let endpoint = Endpoint::try_from(agent_endpoint)?;
 
-        let tags = Some(Arc::unwrap_or_clone(index.tags));
+        let tags = Arc::unwrap_or_clone(index.tags);
         let mut exporter = libdd_profiling::exporter::ProfileExporter::new(
             profiling_library_name,
             profiling_library_version,
@@ -82,22 +82,19 @@ impl Uploader {
 
         let serialized =
             profile.serialize_into_compressed_pprof(Some(message.end_time), message.duration)?;
-        exporter.set_timeout(10000); // 10 seconds in milliseconds
-        let request = exporter.build(
+        debug!("Sending profile to: {agent_endpoint}");
+        let status = exporter.send_blocking(
             serialized,
             &[],
             &[],
-            None,
-            None,
             #[cfg(feature = "debug_stats")]
             Self::create_internal_metadata(),
             #[cfg(not(feature = "debug_stats"))]
             None,
             self.create_profiler_info(),
+            None,
         )?;
-        debug!("Sending profile to: {agent_endpoint}");
-        let result = exporter.send(request, None)?;
-        Ok(result.status().as_u16())
+        Ok(status.as_u16())
     }
 
     pub fn run(self) {

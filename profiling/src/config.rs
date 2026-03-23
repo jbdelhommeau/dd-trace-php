@@ -13,7 +13,7 @@ use core::ptr;
 use core::str::FromStr;
 use libc::{c_char, c_int};
 use libdd_common::tag::{parse_tags, Tag};
-pub use libdd_profiling::exporter::Uri;
+pub use http::Uri;
 use log::{debug, error, warn, LevelFilter};
 use std::borrow::Cow;
 use std::ffi::CString;

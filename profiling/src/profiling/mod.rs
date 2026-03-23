@@ -25,9 +25,10 @@ use core::mem::forget;
 use core::{ptr, str};
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use libdd_profiling::api::{
-    Function, Label as ApiLabel, Location, Period, Sample, UpscalingInfo, ValueType as ApiValueType,
+    Function, Label as ApiLabel, Location, Period, Sample, SampleType, UpscalingInfo,
+    ValueType as ApiValueType,
 };
-use libdd_profiling::exporter::Tag;
+use libdd_common::tag::Tag;
 use libdd_profiling::internal::Profile as InternalProfile;
 use log::{debug, info, trace, warn};
 use once_cell::sync::OnceCell;
@@ -92,10 +93,6 @@ pub struct SampleValues {
 }
 
 const WALL_TIME_PERIOD: Duration = Duration::from_millis(10);
-const WALL_TIME_PERIOD_TYPE: ValueType = ValueType {
-    r#type: "wall-time",
-    unit: "nanoseconds",
-};
 
 #[derive(Debug, Clone)]
 struct WallTime {
@@ -337,13 +334,18 @@ impl TimeCollector {
         let exception_samples_offset = get_offset("exception-samples");
 
         let period = WALL_TIME_PERIOD.as_nanos();
+        let sample_types_enum: Vec<SampleType> = sample_types
+            .iter()
+            .map(|vt| {
+                SampleType::try_from(*vt).unwrap_or_else(|_| {
+                    panic!("unknown sample type: ({}, {})", vt.r#type, vt.unit)
+                })
+            })
+            .collect();
         let mut profile = InternalProfile::try_new(
-            &sample_types,
+            &sample_types_enum,
             Some(Period {
-                r#type: ApiValueType {
-                    r#type: WALL_TIME_PERIOD_TYPE.r#type,
-                    unit: WALL_TIME_PERIOD_TYPE.unit,
-                },
+                sample_type: SampleType::WallTime,
                 value: period.min(i64::MAX as u128) as i64,
             }),
         )
